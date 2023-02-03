@@ -1,25 +1,48 @@
-pub fn simple_moving_average(arr: Vec<f64>, w: u64) -> Vec<f64> {
-    if w == 0 {
+pub fn rolling_finite_mean(series: Vec<f64>, window: u32) -> Vec<f64> {
+    if window == 0 {
         println!("window=0, nothing to moving average. Return the original series");
-        return arr
+        return series;
     }
-    let n = arr.len() as u64;
-    let mut mva_arr: Vec<f64> = vec![];
-    let mut sum_win = 0.;
-    let mut v = 0.;
-    let mut w_dyn = 0;  // dynamic window size
-    for i in 0..n {
-        sum_win = 0.;
-        w_dyn = 0;
-        for j in i-w+1..i+1 {  // j = i, i-1, ..., i-w+1
-            v = arr[j as usize];
 
-            if f64::is_finite(v) { // ignore non-finite values (f64::INFINITY, f64::NEG_INFINITY, f64::NAN)
-                sum_win += v;
-                w_dyn += 1;
-            }
-        }
-        mva_arr.push(sum_win / (w_dyn as f64));
+    let series_len = series.len();
+    if series_len == 0 {
+        println!("series_length=0, nothing to moving average. Return the original series");
+        return series;
     }
-    mva_arr
+
+    let mut series_mva: Vec<f64> = vec![];
+    let mut prev_roll_fin_count: i32 = 0;
+    let mut prev_roll_fin_sum: f64 = 0.;
+    for i in 0..series_len {
+        let curr_roll_fin_count: i32;
+        let curr_roll_fin_sum: f64;
+        let is_curr_val_fin: i32 = series[i].is_finite() as i32;
+        let curr_adj_val: f64 = if is_curr_val_fin == 1 { series[i] } else { 0. };
+
+        if i == 0 {
+            curr_roll_fin_count = is_curr_val_fin;
+            curr_roll_fin_sum = series[i];
+        } else if i < window as usize {
+            curr_roll_fin_count = prev_roll_fin_count + is_curr_val_fin;
+            curr_roll_fin_sum = (if prev_roll_fin_sum.is_finite() {
+                prev_roll_fin_sum
+            } else {
+                0.
+            }) + curr_adj_val;
+        } else {
+            let out_val: f64 = series[i - (window as usize)];
+            let is_out_val_fin: i32 = out_val.is_finite() as i32;
+            let out_adj_val: f64 = if is_out_val_fin == 1 { out_val } else { 0. };
+            curr_roll_fin_count = prev_roll_fin_count + is_curr_val_fin - is_out_val_fin;
+            curr_roll_fin_sum = prev_roll_fin_sum + curr_adj_val - out_adj_val;
+        }
+
+        // moving average
+        series_mva.push(curr_roll_fin_sum / (curr_roll_fin_count as f64));
+
+        // update
+        prev_roll_fin_count = curr_roll_fin_count;
+        prev_roll_fin_sum = curr_roll_fin_sum
+    }
+    series_mva
 }
